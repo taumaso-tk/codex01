@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ダーツ練習ノート</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f3f6f4;color:#183b32;margin:0;padding:20px}
+main{max-width:520px;margin:auto}
+h1{font-size:28px}
+section{background:white;padding:20px;border-radius:16px;margin:18px 0}
+label{display:block;font-weight:bold;margin:14px 0 6px}
+input{width:100%;font-size:20px;padding:12px;border:1px solid #b9c9c0;border-radius:9px}
+button{background:#176c50;color:white;border:0;border-radius:9px;padding:13px 18px;font-size:17px;margin-top:15px}
+li{padding:12px 0;border-bottom:1px solid #ddd}
+small{color:#61756b}
+.delete{background:#a53b3b;font-size:13px;padding:7px 10px;margin-left:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>🎯 ダーツ練習ノート</h1>
+<p>3本のまとまりを記録しよう。</p>
+<section>
+<h2>練習を記録</h2>
+<form id="form">
+<label for="date">練習日</label>
+<input id="date" type="date" required>
+<label for="distance">3本の最大間隔（mm）</label>
+<input id="distance" type="number" min="0" step="0.1" placeholder="例：100" required>
+<button type="submit">記録を保存する</button>
+</form>
+</section>
+<section>
+<h2>これまでの記録</h2>
+<p id="count"></p>
+<ul id="records"></ul>
+</section>
+</main>
+<script>
+const key='darts-practice-v1';
+const date=document.getElementById('date');
+const distance=document.getElementById('distance');
+const list=document.getElementById('records');
+const count=document.getElementById('count');
+date.value=new Date().toLocaleDateString('sv-SE');
+function load(){
+try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return []}
+}
+function render(){
+const records=load().sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+count.textContent=records.length+'件';
+list.replaceChildren();
+records.forEach(r=>{
+const li=document.createElement('li');
+li.append(document.createTextNode(r.date+'　'+r.mm+' mm'));
+const btn=document.createElement('button');
+btn.className='delete';
+btn.textContent='削除';
+btn.onclick=()=>{
+if(confirm('この記録を削除しますか？')){
+localStorage.setItem(key,JSON.stringify(load().filter(x=>x.id!==r.id)));
+render();
+}
+};
+li.append(btn);
+list.append(li);
+});
+}
+document.getElementById('form').onsubmit=e=>{
+e.preventDefault();
+const records=load();
+records.push({id:Date.now()+Math.random(),date:date.value,mm:Number(distance.value)});
+try{
+localStorage.setItem(key,JSON.stringify(records));
+distance.value='';
+render();
+}catch(err){alert('保存できませんでした。ブラウザの保存設定を確認してください。')}
+};
+render();
+</script>
+</body>
+</html>
