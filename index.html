@@ -15,70 +15,267 @@ input{width:100%;font-size:20px;padding:12px;border:1px solid #b9c9c0;border-rad
 button{background:#176c50;color:white;border:0;border-radius:9px;padding:13px 18px;font-size:17px;margin-top:15px}
 li{padding:12px 0;border-bottom:1px solid #ddd}
 small{color:#61756b}
+fieldset{border:0;padding:0;margin:20px 0}
+legend{font-weight:bold;margin-bottom:8px}
+.choices{display:flex;gap:8px}
+.choice{flex:1;position:relative;margin:0;text-align:center;cursor:pointer}
+.choice input{position:absolute;opacity:0;width:1px;height:1px}
+.choice span{display:block;padding:13px 8px;border:2px solid #b9c9c0;border-radius:9px;background:#fff}
+.choice input:checked+span{background:#176c50;border-color:#176c50;color:white}
+.choice input:focus-visible+span{outline:3px solid #bc8514;outline-offset:3px}
+.throw{display:flex;align-items:center;gap:12px;margin-top:10px}
+.throw .choices{flex:1}
+.record-details{display:block;margin-top:7px;line-height:1.7}
 .delete{background:#a53b3b;font-size:13px;padding:7px 10px;margin-left:12px}
+button:disabled{opacity:.5;cursor:not-allowed}
+textarea{width:100%;min-height:180px;font:inherit;padding:12px;border:1px solid #b9c9c0;border-radius:9px}
+select{width:100%;font:inherit;padding:12px;border:1px solid #b9c9c0;border-radius:9px;background:white;color:inherit}
+.record-id{display:block;overflow-wrap:anywhere;font-size:12px;margin:5px 0}
+
+nav{display:flex;flex-wrap:wrap;gap:8px}nav a{padding:10px;color:#176c50;background:#e1eee6;border-radius:8px;font-size:14px}
+button,input,select{min-height:44px}button{cursor:pointer}section{scroll-margin-top:12px}h2{font-size:21px}h3{font-size:17px}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:#f3f6f4;padding:12px;border-radius:10px;min-width:0}.card strong{display:block;font-size:23px;margin:5px 0}.card small{display:block;line-height:1.5}
+.notice{font-size:14px;line-height:1.7}.error{color:#9c2525}.chart{width:100%;height:auto;display:block}.chart-details{font-size:13px;line-height:1.7}.chart-details summary{cursor:pointer;padding:10px 0}.chart-row{padding:8px 0;border-bottom:1px solid #dce5df;overflow-wrap:anywhere}.comparison-row{margin:10px 0;font-size:14px;line-height:1.7}.secondary{background:#e1eee6;color:#183b32}.actions{display:flex;flex-wrap:wrap;gap:8px}.actions button{margin-top:8px;font-size:14px;padding:10px}.backup-note{font-size:13px;line-height:1.7}#data-error:empty{display:none}#data-error{background:#fff1ef;padding:14px;border-radius:10px}li{overflow-wrap:anywhere}select,input{max-width:100%} [hidden]{display:none!important}
+@media(max-width:360px){body{padding:12px}section{padding:14px}.card strong{font-size:20px}.choices{gap:5px}.choice span{padding:12px 5px}}
 </style>
 </head>
 <body>
 <main>
 <h1>🎯 ダーツ練習ノート</h1>
 <p>3本のまとまりを記録しよう。</p>
-<section>
+<nav aria-label="ページ内メニュー"><a href="#entry">記録入力</a><a href="#dashboard">集計</a><a href="#trends">グラフ</a><a href="#history">履歴・コピー</a></nav>
+<p id="data-error" role="alert"></p>
+<section id="entry">
 <h2>練習を記録</h2>
+<p id="edit-status" role="status"></p>
 <form id="form">
 <label for="date">練習日</label>
 <input id="date" type="date" required>
 <label for="distance">3本の最大間隔（mm）</label>
 <input id="distance" type="number" min="0" step="0.1" placeholder="例：100" required>
-<button type="submit">記録を保存する</button>
+<fieldset>
+<legend>トリプルリング内に収まった本数</legend>
+<div class="choices" id="triple-choices"></div>
+</fieldset>
+<fieldset>
+<legend>ブルからの距離（1投ずつ）</legend>
+<small>×：50mm超　○：50mm以内　☆：ブル</small>
+<div id="bull-choices"></div>
+</fieldset>
+<button type="submit" id="save-record">記録を保存する</button>
+<button type="button" id="cancel-edit" class="secondary" hidden>編集をやめる</button>
 </form>
 </section>
-<section>
-<h2>これまでの記録</h2>
+<section id="dashboard">
+<h2>集計ダッシュボード</h2>
+<label for="stats-period">表示期間（日本時間）</label>
+<select id="stats-period"><option value="today">今日</option><option value="week">今週（月〜日）</option><option value="month">今月</option><option value="all">全期間</option></select>
+<p id="period-label" class="notice"></p>
+<div id="stats-cards" class="cards"></div>
+<p class="notice">未記録は各項目の分母から除外。50mm以内は○＋☆、トリプルリング内はリングの内側です。</p>
+<h3>前期との比較</h3><p class="notice">今日は前回の練習日、今週は先週、今月は先月と比較します。今週・今月の途中は、前期の全期間との比較です。対象数の違いも確認してください。</p><div id="comparisons"></div>
+<details><summary>自己ベスト（全期間）</summary><p class="notice">率はその項目の有効投数が30投以上の練習日のみ。同記録は最も早い日を採用します。</p><div id="bests"></div></details>
+<button type="button" id="copy-summary">集計結果をコピー</button>
+<p id="summary-status" role="status" aria-live="polite"></p><div id="summary-fallback" hidden><label for="summary-text">文章を長押ししてコピー</label><textarea id="summary-text" readonly></textarea></div>
+</section>
+<section id="trends"><h2>推移グラフ</h2><p class="notice">上の表示期間に連動します。点は記録のある期間のみ。各期間の有効数は「数値と対象数」で確認できます。</p>
+<label for="chart-unit">まとめ方</label><select id="chart-unit"><option value="day">日別</option><option value="week">週別（月曜始まり）</option><option value="month">月別</option></select>
+<div id="charts"></div></section>
+<section id="history">
+<h2>これまでの記録・コピー</h2>
 <p id="count"></p>
+<label for="copy-range">コピーする範囲</label>
+<select id="copy-range">
+<option value="today">今日だけ</option>
+<option value="week">今週だけ（月〜日）</option>
+<option value="rolling">直近1週間（今日を含む7日間）</option>
+<option value="all">全部</option>
+</select>
+<p id="copy-count"></p>
+<button type="button" id="copy-chatgpt">ChatGPT用にコピー</button>
+<p><small>練習日と日本時間を基準に選びます。今週は月曜〜日曜、直近1週間は今日を含む7日間です。記録IDと分析依頼もコピーします。ChatGPTに貼り付けて送信してください。</small></p>
+<p id="copy-status" role="status" aria-live="polite"></p>
+<div id="copy-fallback" hidden>
+<label for="copy-text">コピーできない場合は、下の文章を長押ししてコピーしてください</label>
+<textarea id="copy-text" readonly></textarea>
+</div>
+<details><summary>バックアップ・復元</summary>
+<p class="backup-note">記録はこのブラウザだけに保存されます。定期的にJSONを保存してください。初回変更前と直前の状態もブラウザ内に自動退避します（ブラウザのデータ削除では退避分も消えます）。復元は追加方式で、同じIDの既存記録は上書きしません。</p>
+<div class="actions"><button id="export-json" type="button">JSONを書き出す</button><button id="export-previous" type="button" class="secondary">直前の状態を書き出す</button><button id="export-initial" type="button" class="secondary">初回の状態を書き出す</button></div>
+<label for="import-json">JSONから追加復元</label><input id="import-json" type="file" accept=".json,application/json"><p id="backup-status" role="status"></p>
+</details>
 <ul id="records"></ul>
 </section>
 </main>
+<script src="stats.js"></script>
 <script>
 const key='darts-practice-v1';
+const database=Darts.store(localStorage);
+let editingId=null;
+function showDataError(err){document.getElementById('data-error').textContent='保存データを確認できないか、保存できませんでした。元データは消去しません。バックアップを保存してください。 '+err.message;}
+function saveRecords(records){try{database.write(records);return true;}catch(err){showDataError(err);return false;}}
 const date=document.getElementById('date');
 const distance=document.getElementById('distance');
 const list=document.getElementById('records');
 const count=document.getElementById('count');
-date.value=new Date().toLocaleDateString('sv-SE');
+const form=document.getElementById('form');
+distance.setAttribute('enterkeyhint','done');
+distance.addEventListener('keydown',event=>{
+if(event.key==='Enter'){event.preventDefault();distance.blur();}
+});
+function dismissEntryKeyboard(event){
+if(event.target instanceof Element&&event.target.closest('.choice')){
+const active=document.activeElement;
+if(active instanceof HTMLInputElement&&(active.type==='number'||active.type==='date'))active.blur();
+}
+}
+form.addEventListener('pointerdown',dismissEntryKeyboard);
+form.addEventListener('click',dismissEntryKeyboard);
+const copyButton=document.getElementById('copy-chatgpt');
+const copyStatus=document.getElementById('copy-status');
+const copyFallback=document.getElementById('copy-fallback');
+const copyText=document.getElementById('copy-text');
+const copyRange=document.getElementById('copy-range');
+const copyCount=document.getElementById('copy-count');
+function localDate(value){return Darts.jstDate(value);}
+function selectRecords(records,range,now=new Date()){return Darts.select(records,Darts.period(range,Darts.jstDate(now)));}
+function recordId(record){return record.exportId||'legacy-'+String(record.id);}
+function updateCopyRange(){
+const records=selectRecords(load(),copyRange.value);
+copyCount.textContent='コピー対象：'+records.length+'件';
+copyButton.disabled=records.length===0;
+copyStatus.textContent=records.length?'':'この範囲には記録がありません。';
+copyFallback.hidden=true;
+copyText.value='';
+}
+copyRange.onchange=updateCopyRange;
+function analysisText(records){
+const rows=records.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
+return [
+'以下は私のダーツ練習記録です。日別・全体の集計と、短い寸評、次回の練習アドバイスを日本語でお願いします。',
+'記録IDは固定です。この会話ですでに送った記録を含め、同じ記録IDは同一記録として1回だけ集計してください。日付や数値が同じでもIDが異なる記録は別ラウンドです。',
+'各行は3投（1ラウンド）。最大間隔は3本の最大間隔（mm）で、小さいほどまとまっています。',
+'トリプルリング内は、リングより内側に収まった本数です。トリプル命中数ではありません。',
+'ブルからの距離：×＝50mm超、○＝50mm以内（ブルを除く）、☆＝ブル。50mm以内の割合には○と☆を含めてください。',
+'未記録は0や×とみなさず、各項目の集計対象から除外して対象数も示してください。記録にないフォームの原因などは断定しないでください。',
+'最大間隔の平均・最小・最大、トリプルリング内の割合、ブル率、50mm以内の割合を集計し、日付が複数あれば変化も比較してください。',
+'',
+'記録数：'+rows.length+'ラウンド',
+'練習日,記録ID,最大間隔(mm),トリプルリング内(本),1投目,2投目,3投目',
+...rows.map(r=>[r.date,recordId(r),r.mm,Number.isInteger(r.triple)?r.triple:'未記録',...[0,1,2].map(i=>Array.isArray(r.bull)&&['×','○','☆'].includes(r.bull[i])?r.bull[i]:'未記録')].join(','))
+].join('\n');
+}
+copyButton.onclick=async()=>{
+const records=selectRecords(load(),copyRange.value);
+if(!records.length){updateCopyRange();return;}
+const text='コピー範囲：'+copyRange.options[copyRange.selectedIndex].text+'（コピー日：'+localDate(new Date())+'）\n'+analysisText(records);
+copyText.value=text;
+copyFallback.hidden=true;
+try{
+await navigator.clipboard.writeText(text);
+copyStatus.textContent=records.length+'件をコピーしました。ChatGPTを開き、入力欄を長押しして「貼り付け」→送信してください。';
+}catch(err){
+copyFallback.hidden=false;
+copyText.focus();
+copyText.select();
+copyText.setSelectionRange(0,text.length);
+copyStatus.textContent='自動コピーできませんでした。下の文章を長押ししてコピーし、ChatGPTに貼り付けてください。';
+}
+};
+function addChoices(container,name,options){
+options.forEach(([value,text])=>{
+const label=document.createElement('label');
+label.className='choice';
+const input=document.createElement('input');
+input.type='radio';
+input.name=name;
+input.value=value;
+input.required=true;
+input.setAttribute('aria-label',text);
+const span=document.createElement('span');
+span.textContent=text;
+label.append(input,span);
+container.append(label);
+});
+}
+addChoices(document.getElementById('triple-choices'),'triple',[0,1,2,3].map(n=>[String(n),n+'本']));
+for(let i=0;i<3;i++){
+const row=document.createElement('div');
+row.className='throw';
+row.setAttribute('role','group');
+row.setAttribute('aria-label',(i+1)+'投目');
+const title=document.createElement('span');
+title.textContent=(i+1)+'投目';
+const choices=document.createElement('div');
+choices.className='choices';
+addChoices(choices,'bull'+i,[['×','×'],['○','○'],['☆','☆']]);
+row.append(title,choices);
+document.getElementById('bull-choices').append(row);
+}
+date.value=Darts.jstDate();
 function load(){
-try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return []}
+return database.read();
 }
 function render(){
-const records=load().sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
-count.textContent=records.length+'件';
+let raw;try{raw=load();}catch(err){showDataError(err);return;}
+const records=Darts.unique(raw).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+count.textContent=records.length+'件'+(raw.length!==records.length?'（同じIDの重複 '+(raw.length-records.length)+'件は表示・集計から除外。元データは保持）':'');
+updateCopyRange();
 list.replaceChildren();
 records.forEach(r=>{
 const li=document.createElement('li');
-li.append(document.createTextNode(r.date+'　'+r.mm+' mm'));
+li.append(document.createTextNode(r.date));
+const idLabel=document.createElement('small');
+idLabel.className='record-id';
+idLabel.textContent='ID: '+recordId(r);
+li.append(idLabel,document.createTextNode((typeof r.mm==='number'&&Number.isFinite(r.mm)?r.mm+' mm':'最大間隔：未記録')));
+const details=document.createElement('span');
+details.className='record-details';
+details.textContent='トリプルリング内：'+(Number.isInteger(r.triple)?r.triple+'本':'未記録')+' ／ ブルからの距離：'+(Array.isArray(r.bull)?[0,1,2].map(i=>(i+1)+'投目 '+(['×','○','☆'].includes(r.bull[i])?r.bull[i]:'未記録')).join('　'):'未記録');
+li.append(details);
+const edit=document.createElement('button');
+edit.type='button';edit.className='secondary';edit.textContent='編集';edit.onclick=()=>startEdit(r);li.append(edit);
 const btn=document.createElement('button');
 btn.className='delete';
 btn.textContent='削除';
 btn.onclick=()=>{
 if(confirm('この記録を削除しますか？')){
-localStorage.setItem(key,JSON.stringify(load().filter(x=>x.id!==r.id)));
-render();
+if(saveRecords(load().filter(x=>recordId(x)!==recordId(r)))){if(editingId===recordId(r))cancelEdit();render();}
 }
 };
 li.append(btn);
 list.append(li);
 });
+if(window.clearSummary)window.clearSummary();
+if(window.refreshDashboard)window.refreshDashboard();
 }
-document.getElementById('form').onsubmit=e=>{
+form.onsubmit=e=>{
 e.preventDefault();
+if(!form.reportValidity())return;
+const data=new FormData(form);
 const records=load();
-records.push({id:Date.now()+Math.random(),date:date.value,mm:Number(distance.value)});
-try{
-localStorage.setItem(key,JSON.stringify(records));
-distance.value='';
+const mm=distance.value===''?null:Number(distance.value);
+const triple=data.get('triple')===null?null:Number(data.get('triple'));
+const bull=[0,1,2].map(i=>data.get('bull'+i));
+if(editingId){
+for(let i=0;i<records.length;i++){if(recordId(records[i])===editingId){const original=records[i];records[i]={...original,date:date.value,mm:distance.value===''?(original.mm??null):mm,triple:data.get('triple')===null?(original.triple??null):triple,bull:bull.map((m,j)=>m??(Array.isArray(original.bull)?original.bull[j]??null:null))};}}
+}else records.push({id:Date.now()+Math.random(),exportId:crypto.randomUUID(),date:date.value,mm,triple,bull});
+if(saveRecords(records)){
+cancelEdit();
 render();
-}catch(err){alert('保存できませんでした。ブラウザの保存設定を確認してください。')}
+if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+requestAnimationFrame(()=>document.getElementById('entry').scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'}));
+}
+
 };
+function cancelEdit(){editingId=null;distance.value='';distance.required=true;form.querySelectorAll('input[type="radio"]').forEach(input=>{input.checked=false;input.required=true});document.getElementById('save-record').textContent='記録を保存する';document.getElementById('cancel-edit').hidden=true;document.getElementById('edit-status').textContent='';}
+function startEdit(r){editingId=recordId(r);date.value=r.date;distance.value=Darts.num(r.mm)==='データなし'?'':r.mm;distance.required=false;form.querySelectorAll('input[type="radio"]').forEach(input=>{input.checked=false;input.required=false});for(const input of form.querySelectorAll('input[type="radio"]')){const target=input.name==='triple'?r.triple:Array.isArray(r.bull)?r.bull[Number(input.name.slice(4))]:null;input.checked=target!=null&&input.value===String(target);}
+document.getElementById('save-record').textContent='変更を保存する';document.getElementById('cancel-edit').hidden=false;document.getElementById('edit-status').textContent='編集中 ID: '+editingId+'（空欄の未記録項目はそのまま保持）';document.getElementById('entry').scrollIntoView({behavior:'smooth'});}
+document.getElementById('cancel-edit').onclick=cancelEdit;
 render();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){try{updateCopyRange();}catch(err){showDataError(err);}}});
+window.addEventListener('focus',()=>{try{updateCopyRange();}catch(err){showDataError(err);}});
 </script>
+<script src="dashboard.js"></script>
 </body>
 </html>
