@@ -105,6 +105,11 @@ button,input,select{min-height:44px}button{cursor:pointer}section{scroll-margin-
 <label for="import-json">JSONから追加復元</label><input id="import-json" type="file" accept=".json,application/json"><p id="backup-status" role="status"></p>
 </details>
 <ul id="records"></ul>
+<details id="older-history" hidden>
+<summary>過去の記録を見る</summary>
+<ul id="older-records"></ul>
+<button type="button" id="more-history" class="secondary">さらに10件を見る</button>
+</details>
 </section>
 </main>
 <script src="stats.js"></script>
@@ -117,6 +122,12 @@ function saveRecords(records){try{database.write(records);return true;}catch(err
 const date=document.getElementById('date');
 const distance=document.getElementById('distance');
 const list=document.getElementById('records');
+const olderList=document.getElementById('older-records');
+const olderHistory=document.getElementById('older-history');
+const moreHistory=document.getElementById('more-history');
+let olderLimit=10;
+moreHistory.onclick=()=>{olderLimit+=10;render();};
+olderHistory.addEventListener('toggle',()=>{if(!olderHistory.open&&olderLimit!==10){olderLimit=10;render();}});
 const count=document.getElementById('count');
 const form=document.getElementById('form');
 distance.setAttribute('enterkeyhint','done');
@@ -222,7 +233,11 @@ const records=Darts.unique(raw).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a
 count.textContent=records.length+'件'+(raw.length!==records.length?'（同じIDの重複 '+(raw.length-records.length)+'件は表示・集計から除外。元データは保持）':'');
 updateCopyRange();
 list.replaceChildren();
-records.forEach(r=>{
+olderList.replaceChildren();
+olderHistory.hidden=records.length<=5;
+olderHistory.querySelector('summary').textContent='過去の記録を見る（'+Math.max(0,records.length-5)+'件）';
+moreHistory.hidden=records.length<=5+olderLimit;
+records.slice(0,5+olderLimit).forEach((r,index)=>{
 const li=document.createElement('li');
 li.append(document.createTextNode(r.date));
 const idLabel=document.createElement('small');
@@ -244,7 +259,7 @@ if(saveRecords(load().filter(x=>recordId(x)!==recordId(r)))){if(editingId===reco
 }
 };
 li.append(btn);
-list.append(li);
+(index<5?list:olderList).append(li);
 });
 if(window.clearSummary)window.clearSummary();
 if(window.refreshDashboard)window.refreshDashboard();
